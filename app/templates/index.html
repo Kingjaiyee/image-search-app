@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Search Application</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+        }
+        #results-container {
+            margin-top: 30px;
+        }
+        .result-item {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .thumbnail {
+            max-width: 150px;
+            max-height: 150px;
+            object-fit: cover;
+            margin-right: 15px;
+        }
+        .loader {
+            display: none;
+            margin: 20px auto;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Image Search Application</h1>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Search by Image</h5>
+                
+                <ul class="nav nav-tabs" id="searchTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">Upload Image</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url" type="button" role="tab">Image URL</button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content mt-3" id="searchTabContent">
+                    <div class="tab-pane fade show active" id="upload" role="tabpanel">
+                        <form id="upload-form" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="formFile" class="form-label">Choose an image to search</label>
+                                <input class="form-control" type="file" id="formFile" name="image" accept="image/*">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Search</button>
+                        </form>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="url" role="tabpanel">
+                        <form id="url-form">
+                            <div class="mb-3">
+                                <label for="imageUrl" class="form-label">Enter image URL</label>
+                                <input type="url" class="form-control" id="imageUrl" name="image_url" placeholder="https://example.com/image.jpg">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Search</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="loader" id="loader"></div>
+        
+        <div id="results-container" class="row"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Function to handle form submission
+        function handleFormSubmit(event, formId) {
+            event.preventDefault();
+            
+            const form = document.getElementById(formId);
+            const formData = new FormData(form);
+            
+            // Show loader
+            document.getElementById('loader').style.display = 'block';
+            // Clear previous results
+            document.getElementById('results-container').innerHTML = '';
+            
+            // Make API request
+            fetch('/search', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loader
+                document.getElementById('loader').style.display = 'none';
+                
+                // Display results
+                displayResults(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('results-container').innerHTML = `
+                    <div class="alert alert-danger">
+                        An error occurred during the search. Please try again.
+                    </div>
+                `;
+            });
+        }
+        
+        // Function to display search results
+        function displayResults(data) {
+            const resultsContainer = document.getElementById('results-container');
+            
+            if (data.error) {
+                resultsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        ${data.error}
+                    </div>
+                `;
+                return;
+            }
+            
+            if (!data.similar_images || data.similar_images.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        No results found for this image.
+                    </div>
+                `;
+                return;
+            }
+            
+            // Display the search results
+            let html = '';
+            
+            // Show best guess if available
+            if (data.best_guess) {
+                html += `
+                    <div class="col-12 mb-4">
+                        <div class="alert alert-success">
+                            <strong>Best Guess:</strong> ${data.best_guess}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Show similar images
+            data.similar_images.forEach(image => {
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card">
+                            <img src="${image.thumbnail}" class="card-img-top" alt="Similar Image">
+                            <div class="card-body">
+                                <h5 class="card-title">${image.title || 'No title'}</h5>
+                                <p class="card-text"><small>${image.source || ''}</small></p>
+                                <a href="${image.link}" class="btn btn-primary" target="_blank">View Source</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsContainer.innerHTML = html;
+        }
+        
+        // Event listeners for form submission
+        document.getElementById('upload-form').addEventListener('submit', e => handleFormSubmit(e, 'upload-form'));
+        document.getElementById('url-form').addEventListener('submit', e => handleFormSubmit(e, 'url-form'));
+        
+        // Bootstrap tabs initialization
+        var triggerTabList = [].slice.call(document.querySelectorAll('#searchTab button'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+            triggerEl.addEventListener('click', function (event) {
+                event.preventDefault()
+                tabTrigger.show()
+            })
+        })
+    </script>
+</body>
+</html>

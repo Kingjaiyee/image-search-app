@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: image-search-app
+  namespace: image-search-app
+spec:
+  selector:
+    app: image-search-app
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  - port: 5000
+    targetPort: 5000
+    name: mrisa-api
+  type: ClusterIP
